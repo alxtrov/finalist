@@ -109,6 +109,59 @@ function CardHero({ profile, height = 360 }) {
   );
 }
 
+// ---------- Searching overlay (fake "finding more bachelors" animation) ----------
+const SEARCHING_LOCATIONS = [
+  'Degani Northcote',
+  'Oakleigh',
+  'SIGMA',
+];
+
+function SearchingOverlay() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => {
+      setIdx((i) => (i + 1) % SEARCHING_LOCATIONS.length);
+    }, 1300);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center anim-in" style={{ backgroundColor: CREAM }}>
+      <div className="absolute inset-0 grain opacity-40 pointer-events-none" />
+
+      <div className="relative z-10 flex flex-col items-center text-center px-6">
+        {/* Three pulsing dots */}
+        <div className="flex gap-2 mb-8">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: GOLD,
+                animation: `pulseDot 1.2s ease-in-out ${i * 0.15}s infinite`,
+              }}
+            />
+          ))}
+        </div>
+
+        <p className="uppercase opacity-50 mb-4" style={{ fontSize: '11px', letterSpacing: '0.3em' }}>
+          Expanding search
+        </p>
+
+        <p className="font-display italic transition-opacity duration-300" style={{ fontSize: 'clamp(22px, 4.5vw, 32px)', color: INK, minHeight: '40px' }}>
+          ...searching{' '}
+          <span key={idx} className="anim-search-swap" style={{ color: GOLD }}>
+            {SEARCHING_LOCATIONS[idx]}
+          </span>{' '}
+          for more bachelors...
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Swipeable Card ----------
 function SwipeCard({ profile, onSwipe, isTop, stackIndex }) {
   const [drag, setDrag] = useState({ x: 0, y: 0 });
@@ -440,6 +493,7 @@ export default function App() {
   const [showMatch, setShowMatch] = useState(null);
   const [showMessage, setShowMessage] = useState(null);
   const [toast, setToast] = useState(null);
+  const [searching, setSearching] = useState(false);
   const stats = useLiveStats();
 
   const showToast = (msg, ms = 2400) => {
@@ -452,11 +506,17 @@ export default function App() {
     const rest = stack.slice(1);
     if (direction === 'right') setShowMatch(swiped);
     if (rest.length === 0) {
-      setStack(profiles);
-      setLoopCount((c) => c + 1);
-      if (loopCount === 0) showToast("You've seen everyone in your area. Expanding search radius: global.", 3000);
-      else if (loopCount === 1) showToast("No new matches. Showing you the same 2 men again.", 3000);
-      else showToast("It's still just them. There is no one else.", 3000);
+      // Trigger "searching" animation before refilling the stack
+      setStack([]); // clear stack during search
+      setSearching(true);
+      setTimeout(() => {
+        setSearching(false);
+        setStack(profiles);
+        setLoopCount((c) => c + 1);
+        if (loopCount === 0) showToast("You've seen everyone in your area. Expanding search radius: global.", 3000);
+        else if (loopCount === 1) showToast("No new matches. Showing you the same 2 men again.", 3000);
+        else showToast("It's still just them. There is no one else.", 3000);
+      }, 4800); // matches the animation duration below
     } else {
       setStack(rest);
     }
@@ -479,6 +539,9 @@ export default function App() {
       @keyframes confetti { 0% { transform: translateY(-20px) rotate(0); opacity: 1; } 100% { transform: translateY(500px) rotate(720deg); opacity: 0; } }
       @keyframes shimmer { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
       @keyframes floatIn { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
+      @keyframes pulseDot { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } }
+      @keyframes swapIn { 0% { opacity: 0; transform: translateY(6px); } 100% { opacity: 1; transform: translateY(0); } }
+      .anim-search-swap { display: inline-block; animation: swapIn 0.35s ease-out; }
       .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
       .hide-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
       .anim-up { animation: fadeUp 0.7s ease-out forwards; }
@@ -702,6 +765,8 @@ export default function App() {
       {showMessage && (
         <MessageForm bachelor={showMessage} onClose={() => setShowMessage(null)} />
       )}
+
+      {searching && <SearchingOverlay />}
 
       {toast && (
         <div className="fixed left-1/2 z-50 px-5 py-3 text-sm anim-pop max-w-xs text-center" style={{ bottom: '112px', transform: 'translateX(-50%)', backgroundColor: INK, color: CREAM }}>
