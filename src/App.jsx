@@ -1,6 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Heart, X, Sparkles, ChevronLeft, ArrowRight, Send, Loader2, Check } from 'lucide-react';
 
+// ============================================================
+// EDIT PROFILES HERE
+// To add a real photo later: set photoUrl to any image URL
+// (e.g. '/raphael.jpg' after adding the file to the `public/` folder,
+// or a full URL like 'https://...'). Leave it empty to show initials.
+// ============================================================
 const profiles = [
   {
     id: 1,
@@ -9,10 +15,15 @@ const profiles = [
     location: 'Surry Hills',
     job: 'In between things',
     initials: 'RA',
+    photoUrl: '/raphael.jpg',
     gradient: 'from-stone-400 via-stone-600 to-stone-800',
     tagline: 'Serial monogamist. Cries at Pixar.',
-    prompt: { q: 'Worst habit', a: 'Checking my phone during sex to see what time it is' },
-    redFlags: ['Owns one fork', 'Has a podcast. Zero episodes.', 'Says "per my last text"'],
+    prompts: [
+      { q: 'Worst habit', a: 'Checking my phone during sex to see what time it is' },
+      { q: 'Last relationship ended because', a: 'She said I was "too much golden retriever, not enough man"' },
+      { q: 'Ick I give off', a: 'I order an espresso martini and refer to it as "my order"' },
+    ],
+    redFlags: ['Owns one fork', 'Has a podcast. Zero episodes.', 'Says "per my last text"', 'Keeps his ex\'s hoodie for "practical reasons"'],
   },
   {
     id: 2,
@@ -21,20 +32,26 @@ const profiles = [
     location: 'Bondi',
     job: 'Founder (pre-revenue)',
     initials: 'GE',
+    photoUrl: '/george.jpg',
     gradient: 'from-emerald-700 via-emerald-900 to-stone-900',
     tagline: "Building something big. Can't say what.",
-    prompt: { q: 'Worst habit', a: 'Mentioning I went to Burning Man within 6 minutes of meeting someone' },
-    redFlags: ['Microdoses. Unclear on what.', 'Strong opinions about sourdough', 'Parks Tesla diagonally'],
+    prompts: [
+      { q: 'Worst habit', a: 'Mentioning I went to Burning Man within 6 minutes of meeting someone' },
+      { q: 'Last relationship ended because', a: 'She wanted me to "get a real job." I am CEO.' },
+      { q: 'Ick I give off', a: 'I do breathwork in the Uber on the way to the date' },
+    ],
+    redFlags: ['Microdoses. Unclear on what.', 'Strong opinions about sourdough', 'Parks Tesla diagonally', 'Calls his mates "co-founders of the friendship"'],
   },
 ];
 
 const TOTAL = profiles.length;
+const SITE_URL = 'finalist.dating';
 
 const CREAM = '#F4EFE6';
 const INK = '#1C1917';
 const GOLD = '#8B6F3F';
 
-// ---------- Message sending (calls our own API, which forwards to Discord) ----------
+// ---------- Message sending ----------
 async function sendMessage({ sender, handle, text, bachelor }) {
   const res = await fetch('/api/send', {
     method: 'POST',
@@ -46,8 +63,50 @@ async function sendMessage({ sender, handle, text, bachelor }) {
       bachelorName: bachelor.name,
     }),
   });
-  if (!res.ok) throw new Error('Send failed');
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.error || 'Send failed');
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+// ---------- Photo / initials hero ----------
+function CardHero({ profile, height = 360 }) {
+  return (
+    <div className={`relative bg-gradient-to-br ${profile.gradient} overflow-hidden`} style={{ height: `${height}px`, flexShrink: 0 }}>
+      <div className="absolute inset-0 grain opacity-60 pointer-events-none" />
+
+      {profile.photoUrl ? (
+        <img
+          src={profile.photoUrl}
+          alt={profile.name}
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ pointerEvents: 'none', objectPosition: 'center 25%' }}
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="font-display text-white" style={{ fontSize: '200px', lineHeight: '1', opacity: 0.9 }}>{profile.initials}</span>
+        </div>
+      )}
+
+      <div className="absolute top-4 left-4 right-4 flex justify-between items-start text-white z-10">
+        <div className="bg-black bg-opacity-30 backdrop-blur px-2 py-1 uppercase" style={{ fontSize: '10px', letterSpacing: '0.25em' }}>Verified</div>
+        <div className="bg-black bg-opacity-30 backdrop-blur px-2 py-1 uppercase" style={{ fontSize: '10px', letterSpacing: '0.25em' }}>{profile.id} of {TOTAL}</div>
+      </div>
+
+      <div className="absolute bottom-0 left-0 right-0 p-5 text-white" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.55), transparent)' }}>
+        <div className="flex items-baseline gap-2 mb-1">
+          <h2 className="font-display text-4xl">{profile.name}</h2>
+          <span className="font-display text-2xl opacity-80">{profile.age}</span>
+        </div>
+        <p className="opacity-80 mb-2" style={{ fontSize: '11px' }}>{profile.location} · {profile.job}</p>
+        <p className="text-sm italic">"{profile.tagline}"</p>
+      </div>
+    </div>
+  );
 }
 
 // ---------- Swipeable Card ----------
@@ -120,54 +179,54 @@ function SwipeCard({ profile, onSwipe, isTop, stackIndex }) {
         zIndex: 10 - stackIndex,
       }}
     >
-      <div className={`relative h-full w-full bg-gradient-to-br ${profile.gradient} shadow-2xl overflow-hidden`}>
-        <div className="absolute inset-0 grain opacity-60 pointer-events-none" />
-
+      <div className="relative h-full w-full bg-white shadow-2xl overflow-hidden flex flex-col" style={{ backgroundColor: CREAM }}>
         {isTop && (
           <>
             <div
-              className="absolute top-10 left-8 border-4 px-5 py-2 font-display italic pointer-events-none"
-              style={{ color: CREAM, borderColor: CREAM, opacity: likeOpacity, fontSize: '38px', letterSpacing: '0.1em', transform: 'rotate(-18deg)' }}
+              className="absolute top-16 left-6 border-4 px-5 py-2 font-display italic pointer-events-none z-30"
+              style={{ color: '#ffffff', borderColor: '#ffffff', opacity: likeOpacity, fontSize: '38px', letterSpacing: '0.1em', transform: 'rotate(-18deg)', textShadow: '0 2px 12px rgba(0,0,0,0.4)' }}
             >
               YES
             </div>
             <div
-              className="absolute top-10 right-8 border-4 px-5 py-2 font-display italic pointer-events-none"
-              style={{ color: CREAM, borderColor: CREAM, opacity: nopeOpacity, fontSize: '38px', letterSpacing: '0.1em', transform: 'rotate(18deg)' }}
+              className="absolute top-16 right-6 border-4 px-5 py-2 font-display italic pointer-events-none z-30"
+              style={{ color: '#ffffff', borderColor: '#ffffff', opacity: nopeOpacity, fontSize: '38px', letterSpacing: '0.1em', transform: 'rotate(18deg)', textShadow: '0 2px 12px rgba(0,0,0,0.4)' }}
             >
               PASS
             </div>
           </>
         )}
 
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-start text-white">
-          <div className="bg-black bg-opacity-30 backdrop-blur px-2 py-1 uppercase" style={{ fontSize: '10px', letterSpacing: '0.25em' }}>Verified</div>
-          <div className="bg-black bg-opacity-30 backdrop-blur px-2 py-1 uppercase" style={{ fontSize: '10px', letterSpacing: '0.25em' }}>{profile.id} of {TOTAL}</div>
-        </div>
+        <CardHero profile={profile} height={360} />
 
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="font-display text-white" style={{ fontSize: '180px', lineHeight: '1', opacity: 0.9 }}>{profile.initials}</span>
-        </div>
+        {/* Scrollable content with fade-out hint */}
+        <div className="relative flex-1 flex flex-col overflow-hidden">
+          <div
+            className="flex-1 overflow-y-auto hide-scrollbar px-5 py-4 space-y-3"
+            style={{ color: INK }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+          {profile.prompts.map((p, i) => (
+            <div key={i} className="pb-3" style={{ borderBottom: i < profile.prompts.length - 1 ? '1px solid rgba(28,25,23,0.1)' : 'none' }}>
+              <p className="uppercase opacity-50 mb-1.5" style={{ fontSize: '9px', letterSpacing: '0.2em' }}>{p.q}</p>
+              <p className="font-display italic leading-snug" style={{ fontSize: '18px' }}>"{p.a}"</p>
+            </div>
+          ))}
 
-        <div className="absolute bottom-0 left-0 right-0 p-5 text-white" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92), rgba(0,0,0,0.6), transparent)' }}>
-          <div className="flex items-baseline gap-2 mb-1">
-            <h2 className="font-display text-4xl">{profile.name}</h2>
-            <span className="font-display text-2xl opacity-80">{profile.age}</span>
-          </div>
-          <p className="opacity-70 mb-2" style={{ fontSize: '11px' }}>{profile.location} · {profile.job}</p>
-          <p className="text-sm italic mb-3">"{profile.tagline}"</p>
-
-          <div className="border-t border-white border-opacity-20 pt-3 mt-2">
-            <p className="uppercase opacity-60 mb-1" style={{ fontSize: '9px', letterSpacing: '0.2em' }}>{profile.prompt.q}</p>
-            <p className="font-display italic leading-snug" style={{ fontSize: '17px' }}>"{profile.prompt.a}"</p>
-          </div>
-
-          <div className="border-t border-white border-opacity-20 pt-3 mt-3">
-            <p className="uppercase mb-1" style={{ fontSize: '9px', letterSpacing: '0.2em', color: '#D4A574' }}>Red flags · legally required</p>
-            <ul className="space-y-0.5 opacity-90" style={{ fontSize: '11px' }}>
-              {profile.redFlags.map((f, i) => <li key={i}>— {f}</li>)}
+          <div className="pt-2">
+            <p className="uppercase mb-2" style={{ fontSize: '9px', letterSpacing: '0.2em', color: GOLD }}>Red flags · legally required</p>
+            <ul className="space-y-1" style={{ fontSize: '13px' }}>
+              {profile.redFlags.map((f, i) => <li key={i} className="opacity-80">— {f}</li>)}
             </ul>
           </div>
+
+          {/* Watermark */}
+          <p className="text-center uppercase opacity-30 pt-3" style={{ fontSize: '9px', letterSpacing: '0.3em' }}>
+            {SITE_URL}
+          </p>
+          </div>
+          {/* Subtle fade hint that content scrolls */}
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: '24px', background: `linear-gradient(to top, ${CREAM}, transparent)` }} />
         </div>
       </div>
     </div>
@@ -180,18 +239,21 @@ function MessageForm({ bachelor, onClose }) {
   const [handle, setHandle] = useState('');
   const [text, setText] = useState('');
   const [status, setStatus] = useState('idle');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const canSend = text.trim().length > 0 && status === 'idle';
 
   const handleSubmit = async () => {
     if (!canSend) return;
     setStatus('sending');
+    setErrorMsg('');
     try {
       await sendMessage({ sender: name, handle, text, bachelor });
       setStatus('sent');
     } catch (err) {
       console.error(err);
-      setStatus('error');
+      setErrorMsg(err.message || 'Something went wrong.');
+      setStatus('idle');
     }
   };
 
@@ -221,8 +283,12 @@ function MessageForm({ bachelor, onClose }) {
           ) : (
             <>
               <div className="flex items-center gap-3 mb-5">
-                <div className={`bg-gradient-to-br ${bachelor.gradient} flex items-center justify-center shrink-0`} style={{ width: '48px', height: '48px' }}>
-                  <span className="font-display text-white" style={{ fontSize: '20px', opacity: 0.9 }}>{bachelor.initials}</span>
+                <div className={`bg-gradient-to-br ${bachelor.gradient} flex items-center justify-center shrink-0 overflow-hidden`} style={{ width: '48px', height: '48px' }}>
+                  {bachelor.photoUrl ? (
+                    <img src={bachelor.photoUrl} alt={bachelor.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="font-display text-white" style={{ fontSize: '20px', opacity: 0.9 }}>{bachelor.initials}</span>
+                  )}
                 </div>
                 <div>
                   <p className="uppercase opacity-50" style={{ fontSize: '9px', letterSpacing: '0.25em' }}>Message</p>
@@ -267,8 +333,8 @@ function MessageForm({ bachelor, onClose }) {
                 </div>
               </div>
 
-              {status === 'error' && (
-                <p className="mt-3 text-sm" style={{ color: '#a33' }}>Something went wrong. Try again in a moment.</p>
+              {errorMsg && (
+                <p className="mt-3 text-sm" style={{ color: '#a33' }}>{errorMsg}</p>
               )}
 
               <div className="flex gap-3 mt-6">
@@ -311,6 +377,61 @@ function MessageForm({ bachelor, onClose }) {
   );
 }
 
+// ---------- Live stats hook ----------
+function useLiveStats() {
+  const [stats, setStats] = useState(() => {
+    const epoch = new Date('2026-04-24T00:00:00Z').getTime();
+    const elapsed = Math.max(0, (Date.now() - epoch) / 1000);
+    return {
+      waitlist: 8472 + Math.floor(elapsed / 180),
+      messages: 12394 + Math.floor(elapsed / 42),
+      matches: 0,
+      relationships: 0,
+    };
+  });
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setStats((s) => ({
+        ...s,
+        waitlist: s.waitlist + (Math.random() < 0.3 ? 1 : 0),
+        messages: s.messages + (Math.random() < 0.5 ? 1 : 0),
+      }));
+    }, 2500);
+    return () => clearInterval(t);
+  }, []);
+
+  return stats;
+}
+
+// ---------- Landing preview card (for the fan) ----------
+function FanCard({ profile }) {
+  return (
+    <div className="bachelor-card relative shadow-2xl overflow-hidden" style={{ backgroundColor: CREAM }}>
+      <div className={`relative bg-gradient-to-br ${profile.gradient} overflow-hidden`} style={{ height: '100%' }}>
+        <div className="absolute inset-0 grain opacity-60 pointer-events-none" />
+        {profile.photoUrl ? (
+          <img src={profile.photoUrl} alt={profile.name} draggable={false} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center 25%' }} />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="font-display text-white" style={{ fontSize: '120px', lineHeight: '1', opacity: 0.9 }}>{profile.initials}</span>
+          </div>
+        )}
+        <div className="absolute top-3 left-3 bg-black bg-opacity-30 backdrop-blur px-2 py-1 text-white uppercase" style={{ fontSize: '10px', letterSpacing: '0.2em' }}>
+          Bachelor {profile.id}
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 p-3.5 text-white" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92), transparent)' }}>
+          <div className="flex items-baseline gap-1.5">
+            <h3 className="font-display text-2xl md:text-3xl">{profile.name}</h3>
+            <span className="font-display text-base opacity-80">{profile.age}</span>
+          </div>
+          <p className="opacity-70 italic truncate" style={{ fontSize: '10px' }}>{profile.tagline}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Main ----------
 export default function App() {
   const [view, setView] = useState('landing');
@@ -319,6 +440,7 @@ export default function App() {
   const [showMatch, setShowMatch] = useState(null);
   const [showMessage, setShowMessage] = useState(null);
   const [toast, setToast] = useState(null);
+  const stats = useLiveStats();
 
   const showToast = (msg, ms = 2400) => {
     setToast(msg);
@@ -357,6 +479,8 @@ export default function App() {
       @keyframes confetti { 0% { transform: translateY(-20px) rotate(0); opacity: 1; } 100% { transform: translateY(500px) rotate(720deg); opacity: 0; } }
       @keyframes shimmer { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
       @keyframes floatIn { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
+      .hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+      .hide-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; }
       .anim-up { animation: fadeUp 0.7s ease-out forwards; }
       .anim-in { animation: fadeIn 0.5s ease-out forwards; }
       .anim-pop { animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
@@ -371,7 +495,8 @@ export default function App() {
       @media (min-width: 768px) { .bachelor-card { width: 240px; } }
       .bachelor-card { transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
       .bachelor-card:hover { transform: var(--base-transform) translateY(-8px) scale(1.05) !important; }
-      .swipe-area { width: 100%; max-width: 360px; aspect-ratio: 3 / 4.4; }
+      .swipe-area { width: 100%; max-width: 360px; height: 640px; }
+      @media (max-height: 720px) { .swipe-area { height: 560px; } }
       .fan-stage { position: relative; width: 100%; max-width: 720px; height: 360px; }
       @media (min-width: 768px) { .fan-stage { height: 440px; } }
       .cta-btn {
@@ -381,6 +506,7 @@ export default function App() {
         transition: opacity 0.2s; cursor: pointer; border: none;
       }
       .cta-btn:hover { opacity: 0.9; }
+      .stat-num { font-variant-numeric: tabular-nums; }
     `}</style>
   );
 
@@ -413,54 +539,38 @@ export default function App() {
         </section>
 
         <section className="relative z-10 px-6 py-6 md:py-8 flex-1 flex items-center justify-center">
-          <div className="fan-stage flex items-center justify-center">
-            {profiles.map((p, i) => {
-              const configs = [
-                { rotate: -7, offsetX: '-95%', delay: '0.4s', z: 2 },
-                { rotate: 7, offsetX: '-5%', delay: '0.55s', z: 3 },
-              ];
-              const cfg = configs[i];
-              const baseTransform = `translate(${cfg.offsetX}, -50%) rotate(${cfg.rotate}deg)`;
-              return (
-                <div
-                  key={p.id}
-                  className="absolute anim-float-inner"
-                  style={{
-                    left: '50%',
-                    top: '50%',
-                    animationDelay: cfg.delay,
-                    zIndex: cfg.z,
-                  }}
-                >
-                  <div
-                    className={`bachelor-card relative bg-gradient-to-br ${p.gradient} shadow-2xl overflow-hidden`}
-                    style={{
-                      '--base-transform': baseTransform,
-                      transform: baseTransform,
-                    }}
-                  >
-                    <div className="absolute inset-0 grain opacity-60 pointer-events-none" />
-                    <div className="absolute top-3 left-3 bg-black bg-opacity-30 backdrop-blur px-2 py-1 text-white micro-narrow">
-                      Bachelor {p.id}
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="font-display text-white" style={{ fontSize: '120px', lineHeight: '1', opacity: 0.9 }}>{p.initials}</span>
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 p-3.5 text-white" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92), transparent)' }}>
-                      <div className="flex items-baseline gap-1.5">
-                        <h3 className="font-display text-2xl md:text-3xl">{p.name}</h3>
-                        <span className="font-display text-base opacity-80">{p.age}</span>
-                      </div>
-                      <p className="opacity-70 italic truncate" style={{ fontSize: '10px' }}>{p.tagline}</p>
-                    </div>
+          <div className="flex items-center justify-center gap-6 md:gap-10">
+            {profiles.map((p, i) => (
+              <div
+                key={p.id}
+                className="anim-float-inner"
+                style={{
+                  animationDelay: `${0.4 + i * 0.15}s`,
+                }}
+              >
+                <div className="bachelor-card relative shadow-2xl overflow-hidden" style={{ backgroundColor: INK }}>
+                  <div className="absolute inset-0 grain opacity-40 pointer-events-none" />
+
+                  {/* "?" initial stand-in */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="font-display" style={{ fontSize: '180px', lineHeight: '1', color: GOLD, opacity: 0.5 }}>?</span>
+                  </div>
+
+                  <div className="absolute top-3 left-3 bg-black bg-opacity-40 backdrop-blur px-2 py-1 text-white uppercase" style={{ fontSize: '10px', letterSpacing: '0.2em' }}>
+                    Bachelor {p.id}
+                  </div>
+
+                  <div className="absolute bottom-0 left-0 right-0 p-4 text-white" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.95), transparent)' }}>
+                    <p className="font-display italic" style={{ fontSize: '22px', opacity: 0.95 }}>Redacted</p>
+                    <p className="uppercase opacity-60 mt-1" style={{ fontSize: '9px', letterSpacing: '0.25em' }}>Identity concealed</p>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </section>
 
-        <section className="relative z-10 px-6 pb-10 md:pb-14 text-center">
+        <section className="relative z-10 px-6 pb-6 text-center">
           <button
             onClick={() => setView('swipe')}
             className="cta-btn anim-up"
@@ -469,9 +579,27 @@ export default function App() {
             Meet the Bachelors
             <ArrowRight className="w-4 h-4" />
           </button>
-          <p className="micro opacity-50 mt-5 anim-up" style={{ animationDelay: '1.05s', opacity: 0 }}>
-            0.0002% acceptance rate · 8,472 on waitlist · 0 matches made
-          </p>
+        </section>
+
+        <section className="relative z-10 px-6 pb-8 anim-up" style={{ animationDelay: '1.1s', opacity: 0 }}>
+          <div className="max-w-3xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 text-center border-t pt-6" style={{ borderColor: 'rgba(28,25,23,0.1)' }}>
+            <div>
+              <div className="font-display stat-num" style={{ fontSize: '32px', lineHeight: 1 }}>{stats.waitlist.toLocaleString()}</div>
+              <div className="micro-narrow opacity-50 mt-1">On waitlist</div>
+            </div>
+            <div>
+              <div className="font-display stat-num" style={{ fontSize: '32px', lineHeight: 1 }}>{stats.messages.toLocaleString()}</div>
+              <div className="micro-narrow opacity-50 mt-1">Messages sent</div>
+            </div>
+            <div>
+              <div className="font-display stat-num" style={{ fontSize: '32px', lineHeight: 1 }}>0</div>
+              <div className="micro-narrow opacity-50 mt-1">Matches made</div>
+            </div>
+            <div>
+              <div className="font-display stat-num" style={{ fontSize: '32px', lineHeight: 1 }}>0</div>
+              <div className="micro-narrow opacity-50 mt-1">Relationships</div>
+            </div>
+          </div>
         </section>
 
         <footer className="relative z-10 py-4 px-6 text-center opacity-40 border-t" style={{ borderColor: 'rgba(28,25,23,0.08)', fontSize: '10px' }}>
@@ -498,7 +626,7 @@ export default function App() {
       </div>
 
       <div className="relative z-10 text-center py-1.5 micro" style={{ color: GOLD, backgroundColor: 'rgba(139,111,63,0.08)' }}>
-        <span className="anim-shimmer inline-block">●</span> drag to swipe · 2 men in your area
+        <span className="anim-shimmer inline-block">●</span> drag to swipe · scroll for more
       </div>
 
       <div className="relative z-10 flex-1 flex items-center justify-center px-5 py-6">
@@ -549,8 +677,12 @@ export default function App() {
                 {showMatch.name} likes you too.<br />
                 <span className="italic">(They like everyone. 100% match rate.)</span>
               </p>
-              <div className={`aspect-square bg-gradient-to-br ${showMatch.gradient} mx-auto mb-6 flex items-center justify-center`} style={{ width: '112px' }}>
-                <span className="font-display text-5xl text-white" style={{ opacity: 0.9 }}>{showMatch.initials}</span>
+              <div className={`aspect-square bg-gradient-to-br ${showMatch.gradient} mx-auto mb-6 flex items-center justify-center overflow-hidden`} style={{ width: '112px' }}>
+                {showMatch.photoUrl ? (
+                  <img src={showMatch.photoUrl} alt={showMatch.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-display text-5xl text-white" style={{ opacity: 0.9 }}>{showMatch.initials}</span>
+                )}
               </div>
               <button
                 onClick={openMessage}
